@@ -1,0 +1,94 @@
+class Solution:
+    def numberToWords(self, num: int) -> str:
+        if num == 0:
+            return "Zero"
+        d1 = {
+            1: "One",
+            2: "Two",
+            3: "Three",
+            4: "Four",
+            5: "Five",
+            6: "Six",
+            7: "Seven",
+            8: "Eight",
+            9: "Nine",
+            0: ""
+        }
+        
+        d2 = {
+            10: "Ten",
+            11: "Eleven",
+            12: "Twelve",
+            13: "Thirteen",
+            14: "Fourteen",
+            15: "Fifteen",
+            16: "Sixteen",
+            17: "Seventeen",
+            18: "Eighteen",
+            19: "Nineteen"
+        }
+        d3 = {
+            20: "Twenty",
+            30: "Thirty",
+            40: "Forty",
+            50: "Fifty",
+            60: "Sixty",
+            70: "Seventy",
+            80: "Eighty",
+            90: "Ninety"
+        }
+        
+        d4 = {
+            3: "Hundred",
+            4: "Thousand",
+            7: "Million",
+            10: "Billion"
+        }
+        def two_digit(number):
+            array = [int(i) for i in str(number)]
+            if len(array) == 1:
+                return d1[array[0]]
+            if array[0] < 2:
+                return d2[10 + array[1]]
+            return d3[array[0] * 10] + " " + d1[array[1]]
+        def three_digit(number):
+            array = [int(i) for i in str(number)]
+            return d1[array[0]] + " " + d4[3] + " " + two_digit(array[1] * 10 + array[2])
+        def one_to_1000(num):
+            if num == 0:
+                return "Zero"
+            if num < 100:
+                return two_digit(num)
+            return three_digit(num)
+        
+        
+        num = str(num)
+        if len(num) % 3 != 0:
+            x = 3 - len(num) + (len(num) // 3) * 3
+            num = x * " " + num
+        
+        arr = []
+        for i in range(0, len(num), 3):
+            arr.append(int(num[i:i + 3]))
+        
+        k = len(arr)
+        answer = ""
+        for i in arr:
+            if k == 4:
+                answer += one_to_1000(i) + " " + "Billion "
+                k -= 1
+            elif k == 3:
+                if i != 0:
+                    answer += one_to_1000(i) + " " + "Million "
+                k -= 1
+            elif k == 2:
+                if i != 0:
+                    answer += one_to_1000(i) + " " + "Thousand "
+                k -= 1
+            else:
+                if i != 0:
+                    answer += one_to_1000(i)
+                k -= 1
+        if answer[-1] == " ":
+            answer = answer[:-1]
+        return answer.replace("  ", " ")
