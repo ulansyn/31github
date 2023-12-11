@@ -2,8 +2,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from datetime import datetime, timedelta
 import json
-PATH = 'PATH'
-
+image_title = 'title'
+category = 'ваша категория'
 def fuller(json_data):
     def full_date(data):
         # Преобразуем даты в формат datetime
@@ -50,34 +50,27 @@ def fuller(json_data):
     dates = [datetime.strptime(date, date_format) for date in json_data.keys()]
 
     sorted_dates = sorted(dates)
-
     sorted_data = {date.strftime(date_format): json_data[date.strftime(date_format)] for date in sorted_dates}
 
     fill_empty_arrays(sorted_data)
 
     return sorted_data
 
-with open('json', 'r', encoding='utf-8') as file:
+with open(f'{category}_data.json', 'r', encoding='utf-8') as file:
     json_data = fuller(json.load(file))
 
-print(json_data)
-arr = [] 
-for i in json_data:
-    arr.append(json_data[i][0])
+arr = [json_data[i][0] for i in json_data] 
 
 indices = np.arange(len(arr))
 coefficients = np.polyfit(indices, arr, 1)
 regression_line = np.polyval(coefficients, indices)
 plt.figure(figsize=(12, 7))
-plt.plot(indices, regression_line, label='линия регрессии', color='gray', linewidth=1.5, alpha=0.75)
-plt.plot(arr, label='average weight', color='red', linestyle='--', linewidth=1)
-
+plt.plot(indices, regression_line, label='Линия регрессии', color='gray', linewidth=1.5, alpha=0.75)
+plt.plot(arr, label='Средний вес', color='red', linestyle='--', linewidth=2)
 plt.legend()
-
-plt.title('Графики sin(x) и cos(x)')
-plt.xlabel('x')
-plt.ylabel('y')
-
+plt.title(f'График "{category}"')
+plt.xlabel('Дни')
+plt.ylabel(["Количество", "Киллограм"][category == 'вес'])
 plt.grid(True)
-plt.savefig(PATH, dpi=250)
+plt.savefig(image_title, dpi=250)
 plt.show()
