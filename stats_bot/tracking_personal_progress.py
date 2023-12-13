@@ -4,15 +4,6 @@ from datetime import datetime
 from telebot import types
 
 bot = telebot.TeleBot('TOKEN')
-def load_active_category():
-    try:
-        with open("active_category.json", "r") as json_file:
-            return json.load(json_file)
-    except FileNotFoundError:
-        return {"категория1": 0, "категория2": 0, "категория3": 0}
-
-data = {'категория1': {}, 'категория2': {}, 'категория3': {}}
-active_category = load_active_category()
 
 def load_data(category):
     try:
@@ -21,86 +12,110 @@ def load_data(category):
     except FileNotFoundError:
         return {}
 
+def load_categories():
+    try:
+        with open("categories.json", "r") as json_file:
+            return json.load(json_file)
+    except FileNotFoundError:
+        return []
+
+def load_active_category():
+    try:
+        with open("active_category.json", "r") as json_file:
+            return json.load(json_file)
+    except FileNotFoundError:
+        return {}
+
 def save_active_category(active_category):
     with open("active_category.json", "w") as json_file:
         json.dump(active_category, json_file)
+
+def save_categories(categories):
+    with open("categories.json", "w") as json_file:
+        json.dump(categories, json_file)
 
 def current_category():
     active_category_name = [k for k, v in active_category.items() if v == 1]
     return active_category_name[0] if active_category_name else None
 
-def start_handler(message):
+data = {category: load_data(category) for category in load_categories()}
+active_category = load_active_category()
+categories = load_categories()
+
+@bot.message_handler(commands=['start'])
+def start(message):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    categories = ["категория1", "категория2", "категория3"]
 
     for category in categories:
         button = types.KeyboardButton(category.capitalize())
         markup.add(button)
 
-    bot.send_message(message.chat.id, "Привет! Этот бот поможет тебе отслеживать твои тренировки. "
-                                      "Выбери категорию и введи значение через пробел, например, 'вес 21.12.23 77.5'.",
+    bot.send_message(message.chat.id, "Привет! Этот бот поможет тебе отслеживать твои данные. "
+                                      "Сначала создай категорию по команде /addcategory, а затем выбери свою категорию и введи данные в виде '21.12.24 76.5'",
                      reply_markup=markup)
 
-def get_json_handler(message):
+@bot.message_handler(commands=['getjson'])
+def get_json(message):
     json_str = json.dumps(data, indent=4, ensure_ascii=False)
     bot.send_message(message.chat.id, f"Текущие данные:\n{json_str}")
 
-def handle_category_selection(message, active_category):
+@bot.message_handler(commands=['addcategory'])
+def add_category(message):
+    bot.send_message(message.chat.id, "Введите название новой категории:")
+    bot.register_next_step_handler(message, process_new_category)
+
+def process_new_category(message):
+    new_category = message.text.lower()
+    if new_category in data:
+        bot.send_message(message.chat.id, "Такая категория уже существует! Чтобы добавить категорию, введите команду /addcategory")
+    else:
+        categories.append(new_category)
+        data[new_category] = {}
+        active_category[new_category] = 0  # кстанавливаем новую категорию неактивной
+        save_categories(categories)
+        save_active_category(active_category)  # cохраняем изменения
+
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        for category in categories:
+            button = types.KeyboardButton(category.capitalize())
+            markup.add(button)
+
+        bot.send_message(message.chat.id, f"Новая категория '{new_category.capitalize()}' добавлена.",
+                         reply_markup=markup)
+
+@bot.message_handler(func=lambda message: message.text.lower() in data)
+def handle_category(message):
+    global active_category
     category = message.text.lower()
     active_category = {k: 1 if k == category else 0 for k in active_category}
     save_active_category(active_category)
     bot.send_message(message.chat.id, f"Выбрана категория '{category.capitalize()}' для ввода данных.")
 
-def handle_text_input(message, data):
+@bot.message_handler(func=lambda message: True)
+def handle_text(message):
     text = message.text.split()
-    print(current_category())
+
     if len(text) == 2:
         category = current_category()
         date = text[0]
-        try:
-            value = float(text[1].replace(',', '.'))
-        except ValueError:
-            bot.send_message(message.chat.id, 'Введите корректные данные!')
-            return
+        value = float(text[1])
 
         if category in data:
-            update_data(category, date, value)
+            if date in data[category]:
+                data[category][date].append(value)
+            else:
+                data[category][date] = [value]
+
+            with open(f"{category}_data.json", "w") as json_file:
+                json.dump(data[category], json_file)
+
             bot.send_message(message.chat.id, f"Данные добавлены для категории '{category}' на {date}: {value}")
+        elif category is None:
+            bot.send_message(message.chat.id, "Выберите категорию с помощью кнопок.")
         else:
-            bot.send_message(message.chat.id, "Недопустимая категория. Выберите категория1, категория2 или категория3.")
+            bot.send_message(message.chat.id, "Недопустимая категория. Выберите существующую категорию.")
     else:
-        bot.send_message(message.chat.id, "Некорректный формат. Пожалуйста, введите данные в формате 'дата значение'")
-
-def update_data(category, date, value):
-    if date in data[category]:
-        data[category][date].append(value)
-    else:
-        data[category][date] = [value]
-
-    with open(f"{category}_data.json", "w") as json_file:
-        json.dump(data[category], json_file)
-
-
-@bot.message_handler(commands=['start'])
-def start_message(message):
-    start_handler(message)
-
-
-@bot.message_handler(commands=['getjson'])
-def get_json_message(message):
-    get_json_handler(message)
-
-
-@bot.message_handler(func=lambda message: message.text.lower() in data)
-def category_selection_message(message):
-    global active_category
-    handle_category_selection(message, active_category)
-
-
-@bot.message_handler(func=lambda message: True)
-def text_input_message(message):
-    handle_text_input(message, data)
-
+        bot.send_message(message.chat.id, "Некорректный формат. Пожалуйста, введите данные в формате 'дата значение'.")
 
 if __name__ == "__main__":
     bot.polling(none_stop=True)
