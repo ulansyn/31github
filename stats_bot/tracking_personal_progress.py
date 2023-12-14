@@ -5,6 +5,8 @@ from telebot import types
 
 bot = telebot.TeleBot('TOKEN')
 
+all_commands = ['/start', '/addcategory', '/deletecategory', '/getjson', '/sendgraph', '/backup_datas']
+
 def load_data(category):
     try:
         with open(f"{category}_data.json", "r") as json_file:
@@ -68,6 +70,8 @@ def process_new_category(message):
     new_category = message.text.lower()
     if new_category in data:
         bot.send_message(message.chat.id, "Такая категория уже существует! Чтобы добавить категорию, введите команду /addcategory")
+    elif new_category in all_commands:
+        bot.send_message(message.chat.id, "Недопустимая категория! Введите другое название категории, после ввода команды /addcategory")
     else:
         categories.append(new_category)
         data[new_category] = {}
@@ -82,6 +86,42 @@ def process_new_category(message):
 
         bot.send_message(message.chat.id, f"Новая категория '{new_category.capitalize()}' добавлена.",
                          reply_markup=markup)
+
+@bot.message_handler(commands=['deletecategory'])
+def delete_category(message):
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    for category in categories:
+        button = types.KeyboardButton(category.capitalize())
+        markup.add(button)
+
+    bot.send_message(message.chat.id, "Выберите категорию для удаления:", reply_markup=markup)
+    bot.register_next_step_handler(message, process_delete_category)
+
+def process_delete_category(message):
+    category_to_delete = message.text.lower()
+
+    if category_to_delete in categories:
+        categories.remove(category_to_delete)
+        data.pop(category_to_delete, None)
+        active_category.pop(category_to_delete, None)
+        save_categories(categories)
+        save_active_category(active_category)
+
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        for category in categories:
+            button = types.KeyboardButton(category.capitalize())
+            markup.add(button)
+
+        bot.send_message(message.chat.id, f"Категория '{category_to_delete.capitalize()}' удалена.",
+                         reply_markup=markup)
+        bot.send_message(message.chat.id, "Чтобы удалить категорию, введите команду /deletecategory", reply_markup=markup)
+    else:
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        for category in categories:
+            button = types.KeyboardButton(category.capitalize())
+            markup.add(button)
+        bot.send_message(message.chat.id, "Недопустимая категория. Выберите существующую категорию.", reply_markup=markup)
+        bot.send_message(message.chat.id, "Чтобы удалить категорию, еще раз введите команду /deletecategory")
 
 @bot.message_handler(func=lambda message: message.text.lower() in data)
 def handle_category(message):
