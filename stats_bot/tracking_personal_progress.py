@@ -2,7 +2,7 @@ import telebot
 import json
 from datetime import datetime
 from telebot import types
-
+from json_complete import send_graphic
 bot = telebot.TeleBot('TOKEN')
 
 all_commands = ['/start', '/addcategory', '/deletecategory', '/getjson', '/sendgraph', '/backup_datas']
@@ -60,6 +60,21 @@ def start(message):
 def get_json(message):
     json_str = json.dumps(data, indent=4, ensure_ascii=False)
     bot.send_message(message.chat.id, f"Текущие данные:\n{json_str}")
+
+@bot.message_handler(commands=['sendgraph'])
+def send_graph(message):
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    for category in categories:
+        button = types.KeyboardButton(category.capitalize())
+        markup.add(button)
+    bot.send_message(message.chat.id, "Выберите категорию для отправки графика:", reply_markup=markup)
+    bot.register_next_step_handler(message, send_selected_graph)
+
+def send_selected_graph(message):
+    bot.send_message(message.chat.id, f"{message.text}")
+    send_graphic(message.text.lower())
+    with open('title.png', 'rb') as photo:
+        bot.send_photo(message.chat.id, photo)
 
 @bot.message_handler(commands=['addcategory'])
 def add_category(message):
