@@ -1,11 +1,14 @@
 import telebot
 import json
+import time
+import zipfile
+import os
 from datetime import datetime
 from telebot import types
 from json_complete import send_graphic
 bot = telebot.TeleBot('TOKEN')
 
-all_commands = ['/start', '/addcategory', '/deletecategory', '/getjson', '/sendgraph', '/backup_datas']
+all_commands = ['/start', '/addcategory', '/deletecategory', '/sendgraph', '/backup']
 
 def load_data(category):
     try:
@@ -56,10 +59,40 @@ def start(message):
                                       "Сначала создай категорию по команде /addcategory, а затем выбери свою категорию и введи данные в виде '21.12.24 76.5'",
                      reply_markup=markup)
 
-@bot.message_handler(commands=['getjson'])
-def get_json(message):
-    json_str = json.dumps(data, indent=4, ensure_ascii=False)
-    bot.send_message(message.chat.id, f"Текущие данные:\n{json_str}")
+
+@bot.message_handler(commands=['backup'])
+def send_all_json(message):
+    today = datetime.now().strftime("%d.%m.%y")
+    bot.send_message(message.chat.id, f"Бэкап данных на {today}")
+
+    temp_dir = 'temp'
+    os.makedirs(temp_dir, exist_ok=True)
+
+    for i in load_categories():
+        json_file_path = f'{i}_data.json'
+        temp_json_path = os.path.join(temp_dir, f'{i}_data.json')
+        
+        with open(json_file_path, 'r') as src_json, open(temp_json_path, 'w') as dest_json:
+            dest_json.write(src_json.read())
+
+    # cоздаем zip
+    zip_filename = f'backup_{today}.zip'
+    with zipfile.ZipFile(zip_filename, 'w') as zip_file:
+        for i in load_categories():
+            temp_json_path = os.path.join(temp_dir, f'{i}_data.json')
+            zip_file.write(temp_json_path, f'{i}_data.json')
+
+
+    chat_id = message.chat.id
+    with open(zip_filename, 'rb') as zip_file:
+        bot.send_document(chat_id, zip_file)
+
+    os.remove(zip_filename)
+    for i in load_categories():
+        temp_json_path = os.path.join(temp_dir, f'{i}_data.json')
+        os.remove(temp_json_path)
+    os.rmdir(temp_dir)
+
 
 @bot.message_handler(commands=['sendgraph'])
 def send_graph(message):
@@ -173,4 +206,9 @@ def handle_text(message):
         bot.send_message(message.chat.id, "Некорректный формат. Пожалуйста, введите данные в формате 'дата значение'.")
 
 if __name__ == "__main__":
-    bot.polling(none_stop=True)
+    while True:
+        try:
+            bot.polling(none_stop=True, timeout=5)
+        except:
+            print("Переподключение через 10 сек")
+            time.sleep(10)
