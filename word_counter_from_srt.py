@@ -25,14 +25,19 @@ def send_word_counts(word_counts, chat_id):
 
     total_words = sum(count for word, count in word_counts)
     res = ""
-
+    cnt = 1
     for i, (word, count) in enumerate(word_counts, start=1):
         percentage = (count / total_words) * 100
         escaped_word = word.replace('.', r'\.')
-        res += f"{str(i) + '.': <5}{escaped_word: <{max_word_length + 2}}{count: <15}{percentage:.4f}" + "\n"
+        for d in range(0, 10):
+            if str(d) in escaped_word:
+                break
+        else:
+            res += f"{str(cnt) + '.': <5} {escaped_word: <{max_word_length + 2}}{count: <15}{percentage:.4f}" + "\n"
+            cnt += 1
 
     res = res.replace('.', r'.')
-
+    print(res)
     while res:
         part, res = res[:4096], res[4096:]
         bot.send_message(chat_id, part)
